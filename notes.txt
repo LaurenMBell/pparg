@@ -2,6 +2,7 @@ This is essentially my lab notebook haha. For more notes,
 check out the 'flix' folder for pics of my whiteboard as I designed
 this project!
 
+7/29/25
 - Initialized GitHub repo with README and worked on the first step of the project: 
     data cleaning! I ended up altering my original plan of just using IC50 data, 
     since there are nearly twice as many observations for EC50 data and I want to 
@@ -21,3 +22,46 @@ this project!
 - Made some changes to data design and started making the model with this: 
 https://www.datacamp.com/tutorial/random-forests-classifier-python tutorial
 
+7/30/25
+- Cleaned up model output (mostly for my own sake) and finished the tutorial! I tried 
+    optimizing the hyperparameters
+
+Before optimizing hyperparameters via RandomSearchCV: 
+Model accuracy: 0.9479553903345725
+
+For COc1ccc([C@@H](O)[C@H](O)CO)cc1OC:
+
+Molecular weight: 228.244
+Number of H-bond Acceptors: 5
+Number of H-bond Donors: 3
+Lipophilicty (LogP): 0.09
+-------------------------------
+Activity Prediction: inactive
+Probability: 0.82
+
+After optimizing parameters:
+Model accuracy: 0.9368029739776952
+
+For COc1ccc([C@@H](O)[C@H](O)CO)cc1OC:
+
+Molecular weight: 228.244
+Number of H-bond Acceptors: 5
+Number of H-bond Donors: 3
+Lipophilicty (LogP): 0.09
+-------------------------------
+Activity Prediction: inactive
+Probability: 0.9387955182072828
+
+- Found that the best hyper parameters were {'max_depth': 6, 'n_estimators': 304}
+- Finished the activity prediction part!! Time for Alphafold and molecular docking!!
+- Chat I lied :C I messed up :C I have no way to differentiate between inhibitors or activators 
+    in the pipeline unless the user explicitly says :C it's research time :C
+- I think that for now I'm just going to go off model hits and update it later if needs be. 
+    Like, if a given code comes up active in one and inactive in the other, then I'll just 
+    assume, yk. 
+use cases: 
+ag | ant | =
++  | -   | ag
+-  | +   | ant
+-  | -   | inactive
++  | +   | mixed activity (who knows lol thats for me to worry about later)
