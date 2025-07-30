@@ -1,0 +1,20 @@
+This is essentially my lab notebook haha. For more notes, 
+check out the 'flix' folder for pics of my whiteboard as I designed
+this project!
+
+7/29/25
+- Initialized GitHub repo with README and worked on the first step of the project: 
+    data cleaning! I ended up altering my original plan of just using IC50 data, 
+    since there are nearly twice as many observations for EC50 data and I want to 
+    use both lol. This changed my design, as the ML pipeline will now need 2 models: 
+    one for the antagonists (using the IC50 data) and one for the agonists (using 
+    the EC50 data). 
+- Note for later, there are 3779 compounds in the EC50 dataset and 1790 in the IC50 post 
+    filtering for pChEMBL >= 5! I looked it up and that seems like fine numbers for 
+    training a model on, but its good to keep in mind. 
+- I filtered to pChEMBL >= 5, which is equal to <10 uM, which is generally the threshold
+    for active compounds, but I want to look into more in the future. 
+- Also made some headway on feature selection (molecular weight, lipophilicity, topological 
+    surface area, # of H-bond acceptors, and # of H-bond donors) and converting the SMILES
+    codes to those values using RDKit. It took some database deisgn to decide how I want 
+    to sort my data here. (I need to rewrite the README lol)

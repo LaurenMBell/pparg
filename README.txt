@@ -1,4 +1,4 @@
-This is a practice project of Lauren Bell's! It was inspired by a LinkedIn 
+This is a side project of Lauren Bell's! It was inspired by a LinkedIn 
 post I saw from Sumaiyyah Fatima* for the ML prediction pipeline, but the 
 structural pipeline was created by me (sort of, it seems like the standard
 process for molecular docking simulation) and the two were integrated together 
@@ -13,7 +13,8 @@ Overview of both sides of the QSAR pipeline and their integration:
 
 ML PIPELINE (adapted from Sumaiyyah Fatima's schema):
 
-1. AQUISITION: Get PPARGs ChEMBL bioactivity dataset through web download
+1. AQUISITION: Get PPARGs ChEMBL bioactivity dataset through web download:
+    https://www.ebi.ac.uk/chembl/explore/activities/STATE_ID:TOB7olBkXsCNq8fsHg7p3g%3D%3D
 2. PREPROCESSING: Clean it using Pandas to filter out missing data, duplicates,
     and label data according to bioactivity thresholds (to determine 'active'
     vs 'inactive' from IC50 value**). Then, remove salts from the interactions listed.
@@ -49,5 +50,7 @@ https://www.linkedin.com/posts/sumaiyyahfatima_bioinformatics-machinelearning-dr
 ** I chose an IC50 (or, half-maximal inhibitory concentration) threshold of 10 uM, mostly 
 informed by this forum from a 10 second google search lol: 
 https://www.researchgate.net/post/Acceptable-IC50-drug-concentration-for-MTT-essay#:~:text=In%20most%20cases%2C%20the%20IC50,and%20excretion%20in%20our%20body.
-I think it would be cool to play around with this threshold in a later iteration!
+I think it would be cool to play around with this threshold in a later iteration! 
+And as a note, the value provided by ChEMBL is -log(molar IC50), so I just converted it from there to 5. 
+So, pChEMBL >= 5 was active in my book, and pChEMBL < 5 was inactive
 ------------------------------------------------------------------------------------------------------------
