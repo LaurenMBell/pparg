@@ -19,8 +19,7 @@ ML PIPELINE (adapted from Sumaiyyah Fatima's schema):
     and label data according to bioactivity thresholds (to determine 'active'
     vs 'inactive' from IC50 value**). Then, remove salts from the interactions listed.
 3. CONVERSION: Using RDKit, calculate molecular characteristics from the SMILES codes. Ex:
-    molecular weight, lipophilicity, number of H-bond donors and acceptors, topological
-    surface area. 
+    molecular weight, lipophilicity, number of H-bond donors and acceptors.
 4. EDA: Perform exploratory data analysis by comparing the distribution of interactions,
     and keep in mind Lipinski's rule of 5. Through correlation analysis, decide on relevant 
     features for the model. 

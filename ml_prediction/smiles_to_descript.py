@@ -3,9 +3,22 @@
 
 import pandas as pd
 from rdkit import Chem
+from rdkit.Chem import Descriptors, Lipinski, Crippen
+
+# function for getting from smiles code -> features we want
+def calc_descriptors(smiles):
+    m = Chem.MolFromSmiles(smiles)
+    
+    # lipinski features
+    mw = Descriptors.MolWt(m)
+    hbd = Lipinski.NumHAcceptors(m)
+    hba = Lipinski.NumHDonors(m)
+    logp = Crippen.MolLogP(m)
+
+    return mw, hbd, hba, logp
 
 # read in file
-path = "/Users/laurenbell/Desktop/pparg/ml_prediction/bioactivity.tsv"
+path = "data/bioactivity.tsv"
 df = pd.read_csv(path, sep="\t")
 
 
@@ -22,4 +35,12 @@ df = df[["Smiles", "pChEMBL Value", "Standard Type"]]
 df_ag = df[df["Standard Type"] == "EC50"]
 df_ant = df[df["Standard Type"] == "IC50"]
 
-# feature selection: 
+# feature selection
+descript = df_ag["Smiles"].apply(calc_descriptors)
+df_ag[["molecular_weight", "HBD", "HBA", "LogP"]] = pd.DataFrame(descript.tolist(), index=df_ag.index)
+
+descript = df_ant["Smiles"].apply(calc_descriptors)
+df_ant[["molecular_weight", "HBD", "HBA", "LogP"]] = pd.DataFrame(descript.tolist(), index=df_ant.index)
+
+df_ag.to_csv("agonists.csv", index=False)
+df_ant.to_csv("antagonists.csv", index=False)
