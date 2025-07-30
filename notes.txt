@@ -65,3 +65,6 @@ ag | ant | =
 -  | +   | ant
 -  | -   | inactive
 +  | +   | mixed activity (who knows lol thats for me to worry about later)
+
+- thinking about adding Lipinksi rule of 5 compliance to the data IDK if that would be interesting 
+or not
