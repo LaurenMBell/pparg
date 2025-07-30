@@ -1,4 +1,4 @@
-Smiles,pChEMBL Value,Standard Type,molecular_weight,HBD,HBA,LogP
+Smiles,pChEMBL Value,Standard Type,molecular_weight,HBA,HBD,LogP
 CCCc1cc(Oc2ccc(F)cc2)ccc1OCCCOc1ccc2c(c1)OC(CC)(C(=O)O)CC2,5.92,IC50,508.58600000000047,5,1,6.976800000000007
 CN(CCOc1ccc(C[C@@H]2SC(=O)NC2=O)cc1)c1ccccn1,7.52,IC50,357.435,6,1,2.490900000000001
 CN(CCOc1ccc(C[C@@H]2SC(=O)NC2=O)cc1)c1ccccn1,7.22,IC50,357.435,6,1,2.490900000000001

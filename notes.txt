@@ -14,6 +14,9 @@ this project!
     training a model on, but its good to keep in mind. 
 - I filtered to pChEMBL >= 5, which is equal to <10 uM, which is generally the threshold
     for active compounds, but I want to look into more in the future. 
-- Also made some headway on feature selection (molecular weight, lipophilicity, # of H-bond acceptors, 
+- Made some headway on feature selection (molecular weight, lipophilicity, # of H-bond acceptors, 
     # of H-bond donors) and converting the SMILES codes to those values using RDKit. 
 - Watched this really helpful youtube vid: https://www.youtube.com/watch?v=9Z9XM9xamDU
+- Started exploratory data analysis and foudn that I really shouldve done that before filtering 
+    all the inactives lol
+

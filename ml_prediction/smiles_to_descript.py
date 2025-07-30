@@ -11,14 +11,14 @@ def calc_descriptors(smiles):
     
     # lipinski features
     mw = Descriptors.MolWt(m)
-    hbd = Lipinski.NumHAcceptors(m)
-    hba = Lipinski.NumHDonors(m)
+    hba = Lipinski.NumHAcceptors(m)
+    hbd = Lipinski.NumHDonors(m)
     logp = Crippen.MolLogP(m)
 
-    return mw, hbd, hba, logp
+    return mw, hba, hbd, logp
 
 # read in file
-path = "data/bioactivity.tsv"
+path = "ml_prediction/data/bioactivity.tsv"
 df = pd.read_csv(path, sep="\t")
 
 
@@ -37,10 +37,10 @@ df_ant = df[df["Standard Type"] == "IC50"]
 
 # feature selection
 descript = df_ag["Smiles"].apply(calc_descriptors)
-df_ag[["molecular_weight", "HBD", "HBA", "LogP"]] = pd.DataFrame(descript.tolist(), index=df_ag.index)
+df_ag[["molecular_weight", "HBA", "HBD", "LogP"]] = pd.DataFrame(descript.tolist(), index=df_ag.index)
 
 descript = df_ant["Smiles"].apply(calc_descriptors)
-df_ant[["molecular_weight", "HBD", "HBA", "LogP"]] = pd.DataFrame(descript.tolist(), index=df_ant.index)
+df_ant[["molecular_weight", "HBA", "HBD", "LogP"]] = pd.DataFrame(descript.tolist(), index=df_ant.index)
 
-df_ag.to_csv("agonists.csv", index=False)
-df_ant.to_csv("antagonists.csv", index=False)
+df_ag.to_csv("ml_prediction/data/agonists.csv", index=False)
+df_ant.to_csv("ml_prediction/data/antagonists.csv", index=False)
