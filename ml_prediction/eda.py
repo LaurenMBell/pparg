@@ -1,5 +1,7 @@
 # Exploratory data analysis of the RDKit descriptors!!
 
+# TODO: add comparisions for active vs inactive compounds
+
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -9,8 +11,6 @@ dark_blue = "#124E78"
 green = "#679436"
 yellow = "#F7CB15"
  
-
-
 ag = pd.read_csv("ml_prediction/data/agonists.csv")
 ag.name = "ag"
 ant = pd.read_csv("ml_prediction/data/antagonists.csv")

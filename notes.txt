@@ -2,7 +2,6 @@ This is essentially my lab notebook haha. For more notes,
 check out the 'flix' folder for pics of my whiteboard as I designed
 this project!
 
-7/29/25
 - Initialized GitHub repo with README and worked on the first step of the project: 
     data cleaning! I ended up altering my original plan of just using IC50 data, 
     since there are nearly twice as many observations for EC50 data and I want to 
@@ -19,4 +18,6 @@ this project!
 - Watched this really helpful youtube vid: https://www.youtube.com/watch?v=9Z9XM9xamDU
 - Started exploratory data analysis and foudn that I really shouldve done that before filtering 
     all the inactives lol
+- Made some changes to data design and started making the model with this: 
+https://www.datacamp.com/tutorial/random-forests-classifier-python tutorial
 

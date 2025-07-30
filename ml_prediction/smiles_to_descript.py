@@ -17,20 +17,28 @@ def calc_descriptors(smiles):
 
     return mw, hba, hbd, logp
 
+def activity(val):
+    if val >= 5:
+        return 'active'
+    else:
+        return 'inactive'
+
 # read in file
 path = "ml_prediction/data/bioactivity.tsv"
 df = pd.read_csv(path, sep="\t")
 
 
 # filter to criteria: has values and is what we actually want 
-# (EC50 and IC50 > 5) and subset to what we want
+# (EC50 and IC50) and subset to what we want
 df = df[
     (df["Smiles"].notna()) & 
-    (df["pChEMBL Value"] >= 5) &
+    (df["pChEMBL Value"].notna()) &
     (df["Standard Type"].isin(["IC50", "EC50"]))
 ]
 
 df = df[["Smiles", "pChEMBL Value", "Standard Type"]]
+
+df['activity'] = df['pChEMBL Value'].apply(activity)
 
 df_ag = df[df["Standard Type"] == "EC50"]
 df_ant = df[df["Standard Type"] == "IC50"]
@@ -44,3 +52,4 @@ df_ant[["molecular_weight", "HBA", "HBD", "LogP"]] = pd.DataFrame(descript.tolis
 
 df_ag.to_csv("ml_prediction/data/agonists.csv", index=False)
 df_ant.to_csv("ml_prediction/data/antagonists.csv", index=False)
+
