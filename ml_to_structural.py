@@ -9,18 +9,18 @@ def main():
 
     args = parser.parse_args()
 
-    # 0 for activator/agonist, 1 for inhibitor/antagonist, 2 for ineffective
-    # compound, 3 for mixed activity
-    type = 0 
-
     if args.ag_pred == "active" and args.ant_pred == "inactive":
-        type = 0
+        type = "activator"
     elif args.ag_pred == "inactive" and args.ant_pred == "active":
-        type = 1
+        type = "inhibitor"
     elif args.ag_pred == "inactive" and args.ant_pred == "inactive":
-        type = 2
+        type = "ineffective"
     else:
-        type = 3
+        type = "mixed"
+    
+    
+
+    
 
     
 

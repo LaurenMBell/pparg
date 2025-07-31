@@ -80,11 +80,8 @@ Forli, S., Huey, R., Pique, M. E., Sanner, M. F., Goodsell, D. S., & Olson, A. J
 Computational protein–ligand docking and virtual drug screening with the AutoDock suite. Nature protocols, 11(5), 905-919.
 - Planning out the final report: 
     - both models evaluation statistics 
-    - structural and activity predictions (lipinski observance as well)
+    - structural and activity predictions 
     - pics of structure, docking, and diagram of logic 
     - does this predicted activator interact with regions that are important for coactivator recruitment? 
-    - does this predicted inhibitor interfere with the regions that stabilize the active conformation?
-- realized I messed up in the EDA step lol the side-by-side barplots have different sample
-    sizes and I don't state that
-- Played with the docking process on https://www.quantabricks.xyz/workflow/docking and it was FUN!! I used 
-    an approved drug, Troglitazone, and saw all the places it would bind to PPARG!
+    - does this predicted inhibitor interfere with the regions that stabilize the active conformation
+    
