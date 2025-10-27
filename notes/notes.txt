@@ -1,0 +1,92 @@
+This is essentially my lab notebook haha. For more notes/supplementary stuff, 
+check out the 'flix' folder for pics of my whiteboard/notebook as I designed
+this project!
+
+7/29/25
+- Initialized GitHub repo with README and worked on the first step of the project: 
+    data cleaning! I ended up altering my original plan of just using IC50 data, 
+    since there are nearly twice as many observations for EC50 data and I want to 
+    use both lol. This changed my design, as the ML pipeline will now need 2 models: 
+    one for the antagonists (using the IC50 data) and one for the agonists (using 
+    the EC50 data). 
+- Note for later, there are 3779 compounds in the EC50 dataset and 1790 in the IC50 post 
+    filtering for pChEMBL >= 5! I looked it up and that seems like fine numbers for 
+    training a model on, but its good to keep in mind. 
+- I filtered to pChEMBL >= 5, which is equal to <10 uM, which is generally the threshold
+    for active compounds, but I want to look into more in the future. 
+- Made some headway on feature selection (molecular weight, lipophilicity, # of H-bond acceptors, 
+    # of H-bond donors) and converting the SMILES codes to those values using RDKit. 
+- Watched this really helpful youtube vid: https://www.youtube.com/watch?v=9Z9XM9xamDU
+- Started exploratory data analysis and foudn that I really shouldve done that before filtering 
+    all the inactives lol
+- Made some changes to data design and started making the model with this: 
+https://www.datacamp.com/tutorial/random-forests-classifier-python tutorial
+
+
+
+7/30/25
+- Cleaned up model output (mostly for my own sake) and finished the tutorial! I tried 
+    optimizing the hyperparameters
+
+Before optimizing hyperparameters via RandomSearchCV: 
+Model accuracy: 0.9479553903345725
+
+For COc1ccc([C@@H](O)[C@H](O)CO)cc1OC:
+
+Molecular weight: 228.244
+Number of H-bond Acceptors: 5
+Number of H-bond Donors: 3
+Lipophilicty (LogP): 0.09
+-------------------------------
+Activity Prediction: inactive
+Probability: 0.82
+
+After optimizing parameters:
+Model accuracy: 0.9368029739776952
+
+For COc1ccc([C@@H](O)[C@H](O)CO)cc1OC:
+
+Molecular weight: 228.244
+Number of H-bond Acceptors: 5
+Number of H-bond Donors: 3
+Lipophilicty (LogP): 0.09
+-------------------------------
+Activity Prediction: inactive
+Probability: 0.9387955182072828
+
+- Found that the best hyper parameters were {'max_depth': 6, 'n_estimators': 304}
+- Finished the activity prediction part!! Time for Alphafold and molecular docking!!
+- Chat I lied :C I messed up :C I have no way to differentiate between inhibitors or activators 
+    in the pipeline unless the user explicitly says :C it's research time :C
+- I think that for now I'm just going to go off model hits and update it later if needs be. 
+    Like, if a given code comes up active in one and inactive in the other, then I'll just 
+    assume, yk. 
+use cases: 
+ag | ant | =
++  | -   | ag
+-  | +   | ant
+-  | -   | inactive
++  | +   | mixed activity (who knows lol thats for me to worry about later)
+
+- thinking about adding Lipinksi rule of 5 compliance to the data IDK if that would be interesting 
+or not
+- Decided that I will use P37231 (UniProt ID) as the representative structure of PPARG, 
+    from the Protein Data Bank in Europe: https://www.ebi.ac.uk/pdbe/entry/pdb/3e00/protein/2
+    They use it as the representative structure because it is the "PDB chain 
+    with highest data quality, coverage and best resolution"
+- I've given up on the README and will just rewrite it at the end ngl 
+- NOTE FOR LATER: AUTODOCKING TUTORIAL CITATION: 
+Forli, S., Huey, R., Pique, M. E., Sanner, M. F., Goodsell, D. S., & Olson, A. J. (2016).
+Computational protein–ligand docking and virtual drug screening with the AutoDock suite. Nature protocols, 11(5), 905-919.
+- Planning out the final report: 
+    - both models evaluation statistics 
+    - structural and activity predictions 
+    - pics of structure, docking, and diagram of logic 
+
+8/1/25
+- spent a solid chunk of time today researching where to put the box center for the docking 
+    simulation. 
+
+9-8-25
+- been a minute but picked up the project again today to see if I could start working on a preprint
+    for something like this
