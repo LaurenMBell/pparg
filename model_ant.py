@@ -39,6 +39,39 @@ def predict_from_smiles(smiles, model):
     else:
         return 'inactive', max(prob), descriptors
 
+def run_model_ant(smiles):
+     # reading in and mapping 
+    df = pd.read_csv("data/antagonists.csv")
+    df['activity'] = df['activity'].map({'inactive' : 0, 'active' : 1})
+
+    # splitting the data
+    X = df[['molecular_weight', 'HBA', "HBD", "LogP"]]
+    y = df['activity']
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+    param_dist = {'n_estimators': randint(50,500), 
+                  'max_depth': randint(1,20)}
+
+    # creating and fitting the model created w/ optimized hyperparameters
+    rf = RandomForestClassifier(max_depth=6, n_estimators=304, random_state=0)
+    rf.fit(X_train, y_train)
+
+    # testing the model 
+    y_pred = rf.predict(X_test)
+
+    # evaluating accuracy
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred)
+    recall = recall_score(y_test, y_pred)
+
+    result = predict_from_smiles(smiles, rf)
+    print(f"ANTAGONISTS: For {smiles}:")
+    print("-------------------------------")
+    print(f"Activity Prediction: {result[0]}")
+    print(f"Probability: {result[1]}\n\n")
+
+    return 
+
 #===========================================================================
 
 def main():
@@ -109,7 +142,6 @@ def main():
     print(f"Activity Prediction: {result[0]}")
     print(f"Probability: {result[1]}")
 
-    
 
 if __name__ == "__main__":
     main()

@@ -1,15 +1,10 @@
 This is a side project of Lauren Bell's! It was inspired by a LinkedIn 
-post I saw from Sumaiyyah Fatima* for the ML prediction pipeline, but the 
-structural pipeline was created by me (sort of, it seems like the standard
-process for molecular docking simulation) and the two were integrated together 
-into a final prediction by me! This is a QSAR-type pipeline, and I hope to create a 
-web framework for users to input their own SMILES codes, and recieve a drug prediction
-as a result as the next part of this project.
+post I saw from Sumaiyyah Fatima* for the ML prediction pipeline. This is a QSAR-type pipeline, 
+where users input a hypothesized drug and recieve prediction of that drug's effectiveness. 
 
-To run the process, run pparg.sh with your input molecule's SMILES code! 
+To run the process, run pparg.py with your input molecule's SMILES code! 
 
-Overview of the QSAR pipeline and their integration:
-
+Overview of the QSAR pipeline:
 1. AQUISITION: Get PPARGs ChEMBL bioactivity dataset through web download:
     https://www.ebi.ac.uk/chembl/explore/activities/STATE_ID:TOB7olBkXsCNq8fsHg7p3g%3D%3D
 2. PREPROCESSING: Clean it using Pandas to filter out missing data, duplicates,
@@ -20,10 +15,11 @@ Overview of the QSAR pipeline and their integration:
 4. EDA: Perform exploratory data analysis by comparing the distribution of interactions,
     and keep in mind Lipinski's rule of 5. Through correlation analysis, decide on relevant 
     features for the model. 
-5. TRAINING: Using Scikit-learn, train a Random Forest model on the interaction data. 
+5. TRAINING: Using Scikit-learn, train a Random Forest model on the interaction data (one for 
+    the agonists, and one for the antagonists)
 6. EVALUATE/VALIDATE: Evaluate model performance using different metrics (F1, area under curve, confusion 
     matrix) to understand model precision
-7. ML PREDICTION: The model should now be able to take a SMILES code as an input, and 
+7. ML PREDICTION: The models should now be able to take a SMILES code as an input, and 
     output an activity prediction! 
 
 ------------------------------------------------------------------------------------------------------------
