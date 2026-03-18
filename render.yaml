@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: pparg-flask
+    name: pparg-activity-predictor
     env: docker
     plan: free
     autoDeploy: true
