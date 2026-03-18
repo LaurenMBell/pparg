@@ -13,7 +13,7 @@
           <div class="brand__title">PPARG Activity Predictor</div>
           <div class="brand__subtitle">Results dashboard</div>
         </div>
-        <a class="btn btn--ghost" href="{{ url_for('index') }}">New query</a>
+        <a class="btn btn--ghost" href="{{ url_for('index') }}">New molecule!</a>
       </header>
 
       <main class="grid">
@@ -47,7 +47,7 @@
         </section>
 
         <section class="panel">
-          <h2 class="panel__title">Interpretation (boilerplate)</h2>
+          <h2 class="panel__title">Interpretation</h2>
           <div class="interpret">
             <p class="interpret__p">
               This molecule is <b>{{ best.activity }}</b> in the <b>{{ 'agonist' if best.model == 'agonist' else 'antagonist' }}</b>
