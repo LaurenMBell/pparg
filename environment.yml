@@ -1,0 +1,13 @@
+name: pparg
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - flask
+  - gunicorn
+  - requests
+  - pandas
+  - scikit-learn
+  - matplotlib
+  - numpy
+  - rdkit
