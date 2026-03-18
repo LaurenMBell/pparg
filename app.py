@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import requests
 from flask import Flask, Response, render_template, request
+from matplotlib import colors as mcolors
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 
@@ -30,6 +31,18 @@ def _fig_to_data_uri(fig) -> str:
     plt.close(fig)
     b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
     return f"data:image/png;base64,{b64}"
+
+
+def _paired_oranges() -> tuple[str, str]:
+    """
+    Two orange shades sampled from Matplotlib's 'Paired' colormap.
+    We use these across all plots for a unified palette.
+    """
+    cmap = plt.get_cmap("Paired")
+    # In 'Paired', indices 6/7 correspond to the orange pair (light/dark).
+    light = mcolors.to_hex(cmap(6))
+    dark = mcolors.to_hex(cmap(7))
+    return light, dark
 
 
 def _is_probably_smiles(text: str) -> bool:
@@ -64,6 +77,7 @@ def pubchem_name_to_smiles(name: str) -> str:
 
 
 def _draw_feature_importance(ag, ant):
+    orange_light, orange_dark = _paired_oranges()
     fig, ax = plt.subplots(figsize=(7.6, 3.4))
     ag_fi = ag["feature_importance"]
     ant_fi = ant["feature_importance"]
@@ -75,14 +89,14 @@ def _draw_feature_importance(ag, ant):
         x - w / 2,
         [ag_fi[f] for f in features],
         width=w,
-        color="orange",
+        color=orange_dark,
         label="Agonist model",
     )
     ax.bar(
         x + w / 2,
         [ant_fi[f] for f in features],
         width=w,
-        color="blue",
+        color=orange_light,
         label="Antagonist model",
     )
 
@@ -96,14 +110,15 @@ def _draw_feature_importance(ag, ant):
 
 
 def _draw_model_metrics(ag, ant):
+    orange_light, orange_dark = _paired_oranges()
     fig, ax = plt.subplots(figsize=(7.6, 3.0))
     labels = ["accuracy", "precision", "recall"]
     ag_vals = [ag["metrics"][k] for k in labels]
     ant_vals = [ant["metrics"][k] for k in labels]
     x = np.arange(len(labels))
     w = 0.36
-    ax.bar(x - w / 2, ag_vals, width=w, color="#c58a39", label="Agonist model")
-    ax.bar(x + w / 2, ant_vals, width=w, color="#6b8f7a", label="Antagonist model")
+    ax.bar(x - w / 2, ag_vals, width=w, color=orange_dark, label="Agonist model")
+    ax.bar(x + w / 2, ant_vals, width=w, color=orange_light, label="Antagonist model")
     ax.set_xticks(x)
     ax.set_xticklabels([s.title() for s in labels])
     ax.set_ylim(0, 1.0)
@@ -115,10 +130,11 @@ def _draw_model_metrics(ag, ant):
 
 
 def _draw_prediction_hit_scores(ag_pred, ant_pred):
+    orange_light, orange_dark = _paired_oranges()
     fig, ax = plt.subplots(figsize=(7.6, 2.7))
     labels = ["Agonist", "Antagonist"]
     vals = [ag_pred["hit_score"], ant_pred["hit_score"]]
-    colors = ["#c58a39", "#6b8f7a"]
+    colors = [orange_dark, orange_light]
     ax.bar(labels, vals, color=colors)
     ax.set_ylim(0, 1.0)
     ax.set_ylabel("Hit score (max class probability)")

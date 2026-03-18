@@ -13,7 +13,7 @@
           <div class="brand__title">PPARG Activity Predictor</div>
           <div class="brand__subtitle">Results dashboard</div>
         </div>
-        <a class="btn btn--ghost" href="{{ url_for('index') }}">New molecule!</a>
+        <a class="btn btn--ghost" href="{{ url_for('index') }}">↺ New molecule!</a>
       </header>
 
       <main class="grid">
@@ -84,7 +84,7 @@
             <div class="card">
               <div class="card__title">Agonist model</div>
               <div class="card__metric">
-                <span class="pill {{ 'pill--active' if ag.activity == 'active' else 'pill--inactive' }}">{{ ag.activity }}</span>
+                <span class="pill pill--agonist {{ 'pill--active' if ag.activity == 'active' else 'pill--inactive' }}">{{ ag.activity }}</span>
                 <span class="mono">hit {{ '%.3f'|format(ag.hit_score) }}</span>
               </div>
               <div class="muted small">Empirical p-value: <span class="mono">{{ '%.4f'|format(stats.ag_p_value) }}</span></div>
@@ -146,7 +146,7 @@
           <form method="post" action="{{ url_for('export') }}">
             <input type="hidden" name="compound_name" value="{{ compound_name }}" />
             <input type="hidden" name="smiles" value="{{ smiles }}" />
-            <button class="btn btn--primary" type="submit">Download results (.txt)</button>
+            <button class="btn btn--primary" type="submit">Download results (.txt) ⬇</button>
           </form>
         </section>
       </main>
