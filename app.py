@@ -102,8 +102,8 @@ def _draw_model_metrics(ag, ant):
     ant_vals = [ant["metrics"][k] for k in labels]
     x = np.arange(len(labels))
     w = 0.36
-    ax.bar(x - w / 2, ag_vals, width=w, color="orange", label="Agonist model")
-    ax.bar(x + w / 2, ant_vals, width=w, color="blue", label="Antagonist model")
+    ax.bar(x - w / 2, ag_vals, width=w, color="#c58a39", label="Agonist model")
+    ax.bar(x + w / 2, ant_vals, width=w, color="#6b8f7a", label="Antagonist model")
     ax.set_xticks(x)
     ax.set_xticklabels([s.title() for s in labels])
     ax.set_ylim(0, 1.0)
@@ -118,7 +118,7 @@ def _draw_prediction_hit_scores(ag_pred, ant_pred):
     fig, ax = plt.subplots(figsize=(7.6, 2.7))
     labels = ["Agonist", "Antagonist"]
     vals = [ag_pred["hit_score"], ant_pred["hit_score"]]
-    colors = [c]
+    colors = ["#c58a39", "#6b8f7a"]
     ax.bar(labels, vals, color=colors)
     ax.set_ylim(0, 1.0)
     ax.set_ylabel("Hit score (max class probability)")
