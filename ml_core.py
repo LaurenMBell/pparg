@@ -1,34 +1,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass
 import os
 import pickle
 from typing import Any
 
 import numpy as np
-import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import Crippen, Descriptors, Lipinski
-from rdkit.Chem.Scaffolds import MurckoScaffold
-from sklearn.calibration import CalibratedClassifierCV
-from sklearn.dummy import DummyClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (
-    accuracy_score,
-    average_precision_score,
-    balanced_accuracy_score,
-    brier_score_loss,
-    confusion_matrix,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
-from sklearn.model_selection import StratifiedKFold, cross_validate, train_test_split
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from dataclasses import asdict, dataclass
 
 
 RANDOM_STATE = 42
@@ -91,7 +71,9 @@ class Featurizer(ABC):
     def featurize_smiles(self, smiles: str) -> dict[str, float]:
         raise NotImplementedError
 
-    def featurize_frame(self, smiles_series: pd.Series) -> pd.DataFrame:
+    def featurize_frame(self, smiles_series):
+        import pandas as pd
+
         records = [self.featurize_smiles(smiles) for smiles in smiles_series]
         return pd.DataFrame(records, columns=FEATURE_COLUMNS)
 
@@ -129,6 +111,17 @@ def benchmark_to_dict(results: list[BenchmarkResult]) -> list[dict[str, float | 
 
 
 def _compute_metrics(y_true: pd.Series, y_pred: np.ndarray, y_prob: np.ndarray) -> ValidationMetrics:
+    from sklearn.metrics import (
+        accuracy_score,
+        average_precision_score,
+        balanced_accuracy_score,
+        brier_score_loss,
+        f1_score,
+        precision_score,
+        recall_score,
+        roc_auc_score,
+    )
+
     return ValidationMetrics(
         accuracy=float(accuracy_score(y_true, y_pred)),
         balanced_accuracy=float(balanced_accuracy_score(y_true, y_pred)),
@@ -142,6 +135,10 @@ def _compute_metrics(y_true: pd.Series, y_pred: np.ndarray, y_prob: np.ndarray) 
 
 
 def _external_validation_mask(smiles: pd.Series, y: pd.Series, test_fraction: float = 0.2) -> pd.Series:
+    import pandas as pd
+    from rdkit.Chem.Scaffolds import MurckoScaffold
+    from sklearn.model_selection import train_test_split
+
     holdout_mask = pd.Series(False, index=smiles.index)
 
     for label in sorted(y.unique()):
@@ -182,6 +179,12 @@ def _external_validation_mask(smiles: pd.Series, y: pd.Series, test_fraction: fl
 
 
 def _build_benchmark_models() -> dict[str, Any]:
+    from sklearn.dummy import DummyClassifier
+    from sklearn.ensemble import RandomForestClassifier
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import StandardScaler
+
     return {
         "majority_baseline": DummyClassifier(strategy="most_frequent"),
         "logistic_balanced": Pipeline(
@@ -195,6 +198,8 @@ def _build_benchmark_models() -> dict[str, Any]:
 
 
 def _run_benchmarks(X: pd.DataFrame, y: pd.Series) -> list[BenchmarkResult]:
+    from sklearn.model_selection import StratifiedKFold, cross_validate
+
     cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=RANDOM_STATE)
     scoring = {
         "accuracy": "accuracy",
@@ -225,12 +230,16 @@ def _run_benchmarks(X: pd.DataFrame, y: pd.Series) -> list[BenchmarkResult]:
 
 
 def _majority_baseline_accuracy(y_true: pd.Series, training_labels: pd.Series) -> float:
+    from sklearn.metrics import accuracy_score
+
     majority_class = int(training_labels.mode().iat[0])
     baseline = np.full(shape=len(y_true), fill_value=majority_class)
     return float(accuracy_score(y_true, baseline))
 
 
 def load_activity_dataset(csv_path: str, featurizer: Featurizer | None = None) -> pd.DataFrame:
+    import pandas as pd
+
     featurizer = featurizer or RDKitDescriptorFeaturizer()
     df = pd.read_csv(csv_path)
     df = df.loc[:, ~df.columns.astype(str).str.startswith("Unnamed:")]
@@ -265,6 +274,10 @@ class ActivityModel(Predictor):
         df = load_activity_dataset(self.csv_path, self.featurizer)
         X = df[FEATURE_COLUMNS]
         y = df["activity"]
+        from sklearn.calibration import CalibratedClassifierCV
+        from sklearn.ensemble import RandomForestClassifier
+        from sklearn.metrics import confusion_matrix
+        from sklearn.model_selection import train_test_split
 
         external_mask = _external_validation_mask(df["Smiles"], y)
         dev_df = df.loc[~external_mask].copy()
@@ -348,10 +361,12 @@ class ActivityModel(Predictor):
         return self._artifacts
 
     def predict(self, smiles: str) -> dict[str, Any]:
+        import pandas as pd
+
         artifacts = self.get_artifacts()
         descriptors = self.featurizer.featurize_smiles(smiles)
-        ddf = pd.DataFrame([[descriptors[column] for column in FEATURE_COLUMNS]], columns=FEATURE_COLUMNS)
-        prob_active = float(artifacts["model"].predict_proba(ddf)[0, 1])
+        row = pd.DataFrame([[descriptors[column] for column in FEATURE_COLUMNS]], columns=FEATURE_COLUMNS)
+        prob_active = float(artifacts["model"].predict_proba(row)[0, 1])
         prediction = int(prob_active >= 0.5)
         hit_score = prob_active if prediction == 1 else 1.0 - prob_active
 

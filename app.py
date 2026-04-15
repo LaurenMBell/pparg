@@ -2,15 +2,18 @@ import base64
 import io
 import os
 from functools import lru_cache
+from pathlib import Path
+import threading
 from typing import Any, Optional
 
 import requests
-from flask import Flask, Response, render_template, request
+from flask import Flask, Response, render_template, request, send_file, url_for
 
 app = Flask(__name__)
 
 
 PUBCHEM_TIMEOUT_S = 12
+GENERATED_FIG_DIR = Path("static/generated")
 
 
 def _fig_to_data_uri(fig) -> str:
@@ -20,6 +23,13 @@ def _fig_to_data_uri(fig) -> str:
     plt.close(fig)
     b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
     return f"data:image/png;base64,{b64}"
+
+
+def _save_fig(fig, path: Path) -> None:
+    plt = _get_plt()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path, format="png", dpi=180, bbox_inches="tight")
+    plt.close(fig)
 
 
 @lru_cache(maxsize=1)
@@ -238,15 +248,94 @@ def _validation_snapshot(artifacts: dict[str, Any]) -> dict[str, Any]:
 
 
 @lru_cache(maxsize=1)
-def _shared_visuals() -> dict[str, str]:
+def _shared_artifacts() -> tuple[dict[str, Any], dict[str, Any]]:
     model_ag, model_ant = _get_model_modules()
-    ag_art = model_ag.get_model_artifacts()
-    ant_art = model_ant.get_model_artifacts()
-    return {
-        "metrics": _draw_model_metrics(ag_art, ant_art),
-        "feature_importance": _draw_feature_importance(ag_art, ant_art),
-        "benchmarks": _draw_benchmark_summary(ag_art, ant_art),
-    }
+    return model_ag.get_model_artifacts(), model_ant.get_model_artifacts()
+
+
+def _shared_figure_path(name: str) -> Path:
+    return GENERATED_FIG_DIR / f"{name}.png"
+
+
+def _ensure_shared_figure(name: str) -> Path:
+    ag_art, ant_art = _shared_artifacts()
+    path = _shared_figure_path(name)
+    if path.exists():
+        return path
+
+    plt = _get_plt()
+    np = _get_np()
+    display_feature_names = _get_display_feature_names()
+    orange_light, orange_dark = _paired_oranges()
+
+    if name == "metrics":
+        fig_obj, axes = plt.subplots(1, 2, figsize=(10.4, 3.2), constrained_layout=True)
+        labels = ["balanced_accuracy", "roc_auc", "avg_precision"]
+        pretty = ["Balanced Acc.", "ROC-AUC", "PR-AUC"]
+        x = np.arange(len(labels))
+        w = 0.36
+        for ax, payload, title in ((axes[0], ag_art, "Agonist validation"), (axes[1], ant_art, "Antagonist validation")):
+            internal = [payload["metrics"][key] for key in labels]
+            external = [payload["external_validation"][key] for key in labels]
+            ax.bar(x - w / 2, internal, width=w, color=orange_dark, label="Internal holdout")
+            ax.bar(x + w / 2, external, width=w, color=orange_light, label="External scaffold")
+            ax.set_xticks(x)
+            ax.set_xticklabels(pretty)
+            ax.set_ylim(0, 1.0)
+            ax.set_ylabel("Score")
+            ax.set_title(title)
+            ax.grid(axis="y", alpha=0.25)
+            ax.legend(frameon=False, loc="lower right")
+    elif name == "feature_importance":
+        fig_obj, ax = plt.subplots(figsize=(9.4, 3.6))
+        ag_fi = ag_art["feature_importance"]
+        ant_fi = ant_art["feature_importance"]
+        features = [display_feature_names.get(feature, feature) for feature in ag_fi.index]
+        x = np.arange(len(features))
+        w = 0.36
+        ax.bar(x - w / 2, [ag_fi[f] for f in ag_fi.index], width=w, color=orange_dark, label="Agonist model")
+        ax.bar(x + w / 2, [ant_fi[f] for f in ant_fi.index], width=w, color=orange_light, label="Antagonist model")
+        ax.set_xticks(x)
+        ax.set_xticklabels(features, rotation=0)
+        ax.set_ylabel("Importance")
+        ax.set_title("Random Forest Feature Importance (training-derived)")
+        ax.grid(axis="y", alpha=0.25)
+        ax.legend(frameon=False, loc="upper right")
+    else:
+        fig_obj, axes = plt.subplots(1, 2, figsize=(10.4, 3.4), constrained_layout=True)
+        for ax, payload, title in ((axes[0], ag_art, "Agonist benchmark"), (axes[1], ant_art, "Antagonist benchmark")):
+            bench = payload["benchmarks"]
+            labels = [row["model_name"].replace("_", "\n") for row in bench]
+            vals = [row["balanced_accuracy"] for row in bench]
+            ax.bar(labels, vals, color=[orange_dark, orange_light, "#b6b6b6"][: len(vals)])
+            ax.set_ylim(0, 1.0)
+            ax.set_ylabel("Balanced accuracy")
+            ax.set_title(title)
+            ax.grid(axis="y", alpha=0.25)
+
+    _save_fig(fig_obj, path)
+    return path
+
+
+def _background_warmup() -> None:
+    try:
+        _shared_artifacts()
+        for name in ("metrics", "feature_importance", "benchmarks"):
+            _ensure_shared_figure(name)
+    except Exception:
+        pass
+
+
+threading.Thread(target=_background_warmup, daemon=True).start()
+
+
+@app.get("/figures/<name>.png")
+def figure_image(name: str):
+    try:
+        path = _ensure_shared_figure(name)
+    except ValueError:
+        return Response("Unknown figure.\n", status=404, mimetype="text/plain")
+    return send_file(path, mimetype="image/png", max_age=3600)
 
 
 def _export_txt(
@@ -367,8 +456,7 @@ def predict():
         chem_traits = _compute_chemical_traits(ag_pred["descriptors"])
         lip = _lipinski_flags(ag_pred["descriptors"])
 
-        ag_art = model_ag.get_model_artifacts()
-        ant_art = model_ant.get_model_artifacts()
+        ag_art, ant_art = _shared_artifacts()
         ag_validation = _validation_snapshot(ag_art)
         ant_validation = _validation_snapshot(ant_art)
 
@@ -383,12 +471,11 @@ def predict():
             "ant_external_majority_acc": float(ant_art["null"]["external_majority_baseline_accuracy"]),
         }
 
-        shared_visuals = _shared_visuals()
         figs = {
-            "metrics": shared_visuals["metrics"],
-            "feature_importance": shared_visuals["feature_importance"],
+            "metrics": url_for("figure_image", name="metrics"),
+            "feature_importance": url_for("figure_image", name="feature_importance"),
             "hit_scores": _draw_prediction_hit_scores(ag_pred, ant_pred),
-            "benchmarks": shared_visuals["benchmarks"],
+            "benchmarks": url_for("figure_image", name="benchmarks"),
         }
 
         return render_template(
@@ -434,8 +521,7 @@ def export():
     chem_traits = _compute_chemical_traits(ag_pred["descriptors"])
     lip = _lipinski_flags(ag_pred["descriptors"])
 
-    ag_art = model_ag.get_model_artifacts()
-    ant_art = model_ant.get_model_artifacts()
+    ag_art, ant_art = _shared_artifacts()
     validation = _validation_snapshot(ag_art)
     stats = {
         "ag_p_value": _empirical_p_value(ag_pred["hit_score"], ag_art["null"]["hit_scores"]),
