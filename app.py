@@ -1,7 +1,9 @@
 import base64
 import io
-from dataclasses import dataclass
+import os
 from typing import Any, Optional
+
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/mplconfig")
 
 import matplotlib
 
@@ -13,8 +15,8 @@ import requests
 from flask import Flask, Response, render_template, request
 from matplotlib import colors as mcolors
 from rdkit import Chem
-from rdkit.Chem import Descriptors
 
+from ml_core import DISPLAY_FEATURE_NAMES
 import model_ag
 import model_ant
 
@@ -34,12 +36,7 @@ def _fig_to_data_uri(fig) -> str:
 
 
 def _paired_oranges() -> tuple[str, str]:
-    """
-    Two orange shades sampled from Matplotlib's 'Paired' colormap.
-    We use these across all plots for a unified palette.
-    """
     cmap = plt.get_cmap("Paired")
-    # In 'Paired', indices 6/7 correspond to the orange pair (light/dark).
     light = mcolors.to_hex(cmap(6))
     dark = mcolors.to_hex(cmap(7))
     return light, dark
@@ -48,57 +45,38 @@ def _paired_oranges() -> tuple[str, str]:
 def _is_probably_smiles(text: str) -> bool:
     if not text:
         return False
-    m = Chem.MolFromSmiles(text)
-    return m is not None
+    return Chem.MolFromSmiles(text) is not None
 
 
 def pubchem_name_to_smiles(name: str) -> str:
-    # PUG REST: SMILES for a compound name.
-    # Note: PubChem may return ConnectivitySMILES instead of CanonicalSMILES
-    # depending on dataset/availability, so we accept multiple fields.
     url = (
         "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/"
         f"{requests.utils.quote(name)}/property/CanonicalSMILES/JSON"
     )
-    r = requests.get(url, timeout=PUBCHEM_TIMEOUT_S)
-    r.raise_for_status()
-    data = r.json()
+    response = requests.get(url, timeout=PUBCHEM_TIMEOUT_S)
+    response.raise_for_status()
+    data = response.json()
     props = data["PropertyTable"]["Properties"]
     if not props:
         raise ValueError("No PubChem results for that compound name.")
     row = props[0]
-    if "CanonicalSMILES" in row:
-        return row["CanonicalSMILES"]
-    if "ConnectivitySMILES" in row:
-        return row["ConnectivitySMILES"]
-    if "IsomericSMILES" in row:
-        return row["IsomericSMILES"]
+    for key in ("CanonicalSMILES", "ConnectivitySMILES", "IsomericSMILES"):
+        if key in row:
+            return row[key]
     raise ValueError("PubChem response did not contain a SMILES field.")
 
 
 def _draw_feature_importance(ag, ant):
     orange_light, orange_dark = _paired_oranges()
-    fig, ax = plt.subplots(figsize=(7.6, 3.4))
+    fig, ax = plt.subplots(figsize=(9.4, 3.6))
     ag_fi = ag["feature_importance"]
     ant_fi = ant["feature_importance"]
-    features = list(ag_fi.index)
+    features = [DISPLAY_FEATURE_NAMES.get(feature, feature) for feature in ag_fi.index]
 
     x = np.arange(len(features))
     w = 0.36
-    ax.bar(
-        x - w / 2,
-        [ag_fi[f] for f in features],
-        width=w,
-        color=orange_dark,
-        label="Agonist model",
-    )
-    ax.bar(
-        x + w / 2,
-        [ant_fi[f] for f in features],
-        width=w,
-        color=orange_light,
-        label="Antagonist model",
-    )
+    ax.bar(x - w / 2, [ag_fi[f] for f in ag_fi.index], width=w, color=orange_dark, label="Agonist model")
+    ax.bar(x + w / 2, [ant_fi[f] for f in ant_fi.index], width=w, color=orange_light, label="Antagonist model")
 
     ax.set_xticks(x)
     ax.set_xticklabels(features, rotation=0)
@@ -111,21 +89,28 @@ def _draw_feature_importance(ag, ant):
 
 def _draw_model_metrics(ag, ant):
     orange_light, orange_dark = _paired_oranges()
-    fig, ax = plt.subplots(figsize=(7.6, 3.0))
-    labels = ["accuracy", "precision", "recall"]
-    ag_vals = [ag["metrics"][k] for k in labels]
-    ant_vals = [ant["metrics"][k] for k in labels]
+    fig, axes = plt.subplots(1, 2, figsize=(10.4, 3.2), constrained_layout=True)
+    labels = ["balanced_accuracy", "roc_auc", "avg_precision"]
+    pretty = ["Balanced Acc.", "ROC-AUC", "PR-AUC"]
     x = np.arange(len(labels))
     w = 0.36
-    ax.bar(x - w / 2, ag_vals, width=w, color=orange_dark, label="Agonist model")
-    ax.bar(x + w / 2, ant_vals, width=w, color=orange_light, label="Antagonist model")
-    ax.set_xticks(x)
-    ax.set_xticklabels([s.title() for s in labels])
-    ax.set_ylim(0, 1.0)
-    ax.set_ylabel("Score")
-    ax.set_title("Holdout Metrics (80/20 split, stratified, fixed seed)")
-    ax.grid(axis="y", alpha=0.25)
-    ax.legend(frameon=False, loc="upper right")
+
+    for ax, payload, title in (
+        (axes[0], ag, "Agonist validation"),
+        (axes[1], ant, "Antagonist validation"),
+    ):
+        internal = [payload["metrics"][key] for key in labels]
+        external = [payload["external_validation"][key] for key in labels]
+        ax.bar(x - w / 2, internal, width=w, color=orange_dark, label="Internal holdout")
+        ax.bar(x + w / 2, external, width=w, color=orange_light, label="External scaffold")
+        ax.set_xticks(x)
+        ax.set_xticklabels(pretty)
+        ax.set_ylim(0, 1.0)
+        ax.set_ylabel("Score")
+        ax.set_title(title)
+        ax.grid(axis="y", alpha=0.25)
+        ax.legend(frameon=False, loc="lower right")
+
     return _fig_to_data_uri(fig)
 
 
@@ -134,26 +119,50 @@ def _draw_prediction_hit_scores(ag_pred, ant_pred):
     fig, ax = plt.subplots(figsize=(7.6, 2.7))
     labels = ["Agonist", "Antagonist"]
     vals = [ag_pred["hit_score"], ant_pred["hit_score"]]
-    colors = [orange_dark, orange_light]
-    ax.bar(labels, vals, color=colors)
+    ax.bar(labels, vals, color=[orange_dark, orange_light])
     ax.set_ylim(0, 1.0)
-    ax.set_ylabel("Hit score (max class probability)")
-    ax.set_title("Prediction Hit Scores")
+    ax.set_ylabel("Hit score")
+    ax.set_title("Prediction Confidence")
     ax.grid(axis="y", alpha=0.25)
-    for i, v in enumerate(vals):
-        ax.text(i, min(0.98, v + 0.03), f"{v:.3f}", ha="center", va="bottom", fontsize=10)
+    for i, value in enumerate(vals):
+        ax.text(i, min(0.98, value + 0.03), f"{value:.3f}", ha="center", va="bottom", fontsize=10)
     return _fig_to_data_uri(fig)
 
 
-def _compute_chemical_traits(smiles: str) -> dict[str, Any]:
-    m = Chem.MolFromSmiles(smiles)
-    if m is None:
-        raise ValueError("Invalid SMILES: RDKit could not parse structure.")
+def _draw_benchmark_summary(ag, ant):
+    orange_light, orange_dark = _paired_oranges()
+    fig, axes = plt.subplots(1, 2, figsize=(10.4, 3.4), constrained_layout=True)
+
+    for ax, payload, title in (
+        (axes[0], ag, "Agonist benchmark"),
+        (axes[1], ant, "Antagonist benchmark"),
+    ):
+        bench = payload["benchmarks"]
+        labels = [row["model_name"].replace("_", "\n") for row in bench]
+        vals = [row["balanced_accuracy"] for row in bench]
+        ax.bar(labels, vals, color=[orange_dark, orange_light, "#b6b6b6"][: len(vals)])
+        ax.set_ylim(0, 1.0)
+        ax.set_ylabel("Balanced accuracy")
+        ax.set_title(title)
+        ax.grid(axis="y", alpha=0.25)
+
+    return _fig_to_data_uri(fig)
+
+
+def _descriptor_items(descriptors: dict[str, Any]) -> list[tuple[str, Any]]:
+    rows = []
+    for key, label in DISPLAY_FEATURE_NAMES.items():
+        value = descriptors[key]
+        rows.append((label, round(value, 2) if isinstance(value, float) else value))
+    return rows
+
+
+def _compute_chemical_traits(descriptors: dict[str, Any]) -> dict[str, Any]:
     return {
-        "heavy_atoms": int(m.GetNumHeavyAtoms()),
-        "rings": int(Descriptors.RingCount(m)),
-        "tpsa": float(Descriptors.TPSA(m)),
-        "rot_bonds": int(Descriptors.NumRotatableBonds(m)),
+        "heavy_atoms": int(descriptors["heavy_atoms"]),
+        "rings": int(descriptors["rings"]),
+        "tpsa": float(descriptors["tpsa"]),
+        "rot_bonds": int(descriptors["rot_bonds"]),
     }
 
 
@@ -165,12 +174,24 @@ def _lipinski_flags(descriptors: dict[str, Any]) -> dict[str, bool]:
         "logp_le_5": descriptors["LogP"] <= 5,
     }
 
+
 def _empirical_p_value(hit_score: float, null_scores: list[float]) -> float:
     if not null_scores:
         return float("nan")
-    # One-sided: how often does the model assign a hit score >= this?
-    ge = sum(1 for s in null_scores if s >= hit_score)
-    return (ge + 1.0) / (len(null_scores) + 1.0)  # add-one smoothing
+    ge = sum(1 for score in null_scores if score >= hit_score)
+    return (ge + 1.0) / (len(null_scores) + 1.0)
+
+
+def _validation_snapshot(artifacts: dict[str, Any]) -> dict[str, Any]:
+    benchmarks = artifacts["benchmarks"]
+    return {
+        "internal": artifacts["metrics"],
+        "external": artifacts["external_validation"],
+        "benchmarks": benchmarks,
+        "best_benchmark": benchmarks[0],
+        "splits": artifacts["splits"],
+    }
+
 
 def _export_txt(
     compound_name: str,
@@ -181,57 +202,79 @@ def _export_txt(
     chem_traits: dict[str, Any],
     lipinski: dict[str, Any],
     stats: dict[str, Any],
+    validation: dict[str, Any],
 ) -> str:
     name_line = compound_name if compound_name else "—"
-    lines = []
-    lines.append("PPARG Activity Predictor — Export")
-    lines.append("--------------------------------")
-    lines.append(f"Compound name: {name_line}")
-    lines.append(f"SMILES: {smiles}")
-    lines.append("")
-    lines.append("Predictions")
-    lines.append(f"- Agonist: {ag_pred['activity']} (hit={ag_pred['hit_score']:.3f}, p={stats['ag_p_value']:.4f})")
-    lines.append(
-        f"- Antagonist: {ant_pred['activity']} (hit={ant_pred['hit_score']:.3f}, p={stats['ant_p_value']:.4f})"
+    lines = [
+        "PPARG Activity Predictor — Export",
+        "--------------------------------",
+        f"Compound name: {name_line}",
+        f"SMILES: {smiles}",
+        "",
+        "Predictions",
+        f"- Agonist: {ag_pred['activity']} (hit={ag_pred['hit_score']:.3f}, p={stats['ag_p_value']:.4f})",
+        f"- Antagonist: {ant_pred['activity']} (hit={ant_pred['hit_score']:.3f}, p={stats['ant_p_value']:.4f})",
+        f"- Best hit: {best['model']} {best['activity']} (hit={best['hit_score']:.3f})",
+        "",
+        "Descriptors",
+    ]
+    for label, value in _descriptor_items(ag_pred["descriptors"]):
+        if isinstance(value, float):
+            lines.append(f"- {label}: {value:.2f}")
+        else:
+            lines.append(f"- {label}: {value}")
+
+    lines.extend(
+        [
+            "",
+            "Chemical traits",
+            f"- Heavy atoms: {chem_traits['heavy_atoms']}",
+            f"- Rings: {chem_traits['rings']}",
+            f"- tPSA: {chem_traits['tpsa']:.2f}",
+            f"- Rotatable bonds: {chem_traits['rot_bonds']}",
+            "",
+            "Validation",
+            (
+                f"- Internal holdout: balanced_acc={validation['internal']['balanced_accuracy']:.3f}, "
+                f"roc_auc={validation['internal']['roc_auc']:.3f}, "
+                f"pr_auc={validation['internal']['avg_precision']:.3f}"
+            ),
+            (
+                f"- External scaffold split: balanced_acc={validation['external']['balanced_accuracy']:.3f}, "
+                f"roc_auc={validation['external']['roc_auc']:.3f}, "
+                f"pr_auc={validation['external']['avg_precision']:.3f}"
+            ),
+            (
+                f"- Best benchmark model: {validation['best_benchmark']['model_name']} "
+                f"(balanced_acc={validation['best_benchmark']['balanced_accuracy']:.3f})"
+            ),
+            "",
+            "Lipinski checks",
+            f"- MW ≤ 500: {bool(lipinski['mw_le_500'])}",
+            f"- HBA ≤ 10: {bool(lipinski['hba_le_10'])}",
+            f"- HBD ≤ 5: {bool(lipinski['hbd_le_5'])}",
+            f"- LogP ≤ 5: {bool(lipinski['logp_le_5'])}",
+            "",
+            "Statistical framework (empirical)",
+            (
+                f"- Agonist null: n={stats['ag_null_n']} hit-scores from training distribution; "
+                f"internal-majority-acc={stats['ag_majority_acc']:.3f}; "
+                f"external-majority-acc={stats['ag_external_majority_acc']:.3f}"
+            ),
+            (
+                f"- Antagonist null: n={stats['ant_null_n']} hit-scores from training distribution; "
+                f"internal-majority-acc={stats['ant_majority_acc']:.3f}; "
+                f"external-majority-acc={stats['ant_external_majority_acc']:.3f}"
+            ),
+            (
+                "Note: p-values here are one-sided empirical scores for how extreme the model's hit score is "
+                "relative to its own training distribution (not a biological assay significance test)."
+            ),
+            "",
+        ]
     )
-    lines.append(
-        f"- Best hit: {best['model']} {best['activity']} (hit={best['hit_score']:.3f})"
-    )
-    lines.append("")
-    lines.append("Descriptors (MW/HBA/HBD/LogP)")
-    d = ag_pred["descriptors"]
-    lines.append(f"- MW: {d['molecular_weight']:.2f}")
-    lines.append(f"- HBA: {d['HBA']}")
-    lines.append(f"- HBD: {d['HBD']}")
-    lines.append(f"- LogP: {d['LogP']:.2f}")
-    lines.append("")
-    lines.append("Chemical traits")
-    lines.append(f"- Heavy atoms: {chem_traits['heavy_atoms']}")
-    lines.append(f"- Rings: {chem_traits['rings']}")
-    lines.append(f"- tPSA: {chem_traits['tpsa']:.2f}")
-    lines.append(f"- Rotatable bonds: {chem_traits['rot_bonds']}")
-    lines.append("")
-    lines.append("Lipinski checks")
-    lines.append(f"- MW ≤ 500: {bool(lipinski['mw_le_500'])}")
-    lines.append(f"- HBA ≤ 10: {bool(lipinski['hba_le_10'])}")
-    lines.append(f"- HBD ≤ 5: {bool(lipinski['hbd_le_5'])}")
-    lines.append(f"- LogP ≤ 5: {bool(lipinski['logp_le_5'])}")
-    lines.append("")
-    lines.append("Statistical framework (empirical)")
-    lines.append(
-        f"- Agonist null: n={stats['ag_null_n']} hit-scores from training distribution; "
-        f"majority-baseline-acc={stats['ag_majority_acc']:.3f}"
-    )
-    lines.append(
-        f"- Antagonist null: n={stats['ant_null_n']} hit-scores from training distribution; "
-        f"majority-baseline-acc={stats['ant_majority_acc']:.3f}"
-    )
-    lines.append(
-        "Note: p-values here are one-sided empirical scores for how extreme the model's hit score is "
-        "relative to its own training distribution (not a biological assay significance test)."
-    )
-    lines.append("")
-    return "\n".join(lines) + "\n"
+
+    return "\n".join(lines)
 
 
 @app.get("/")
@@ -259,20 +302,18 @@ def predict():
 
         ag_pred = model_ag.predict(smiles)
         ant_pred = model_ant.predict(smiles)
-
-        # choose "best hit" by probability; break ties by preferring active
         best = max(
             [ag_pred, ant_pred],
-            key=lambda r: (r["hit_score"], 1 if r["activity"] == "active" else 0),
+            key=lambda result: (result["hit_score"], 1 if result["activity"] == "active" else 0),
         )
 
-        # chemical traits and lipinski flags from (shared) descriptors
-        chem_traits = _compute_chemical_traits(smiles)
+        chem_traits = _compute_chemical_traits(ag_pred["descriptors"])
         lip = _lipinski_flags(ag_pred["descriptors"])
 
-        # model artifacts for plots (cached)
         ag_art = model_ag.get_model_artifacts()
         ant_art = model_ant.get_model_artifacts()
+        ag_validation = _validation_snapshot(ag_art)
+        ant_validation = _validation_snapshot(ant_art)
 
         stats = {
             "ag_p_value": _empirical_p_value(ag_pred["hit_score"], ag_art["null"]["hit_scores"]),
@@ -281,12 +322,15 @@ def predict():
             "ant_null_n": int(ant_art["null"]["n_train"]),
             "ag_majority_acc": float(ag_art["null"]["majority_baseline_accuracy"]),
             "ant_majority_acc": float(ant_art["null"]["majority_baseline_accuracy"]),
+            "ag_external_majority_acc": float(ag_art["null"]["external_majority_baseline_accuracy"]),
+            "ant_external_majority_acc": float(ant_art["null"]["external_majority_baseline_accuracy"]),
         }
 
         figs = {
             "metrics": _draw_model_metrics(ag_art, ant_art),
             "feature_importance": _draw_feature_importance(ag_art, ant_art),
             "hit_scores": _draw_prediction_hit_scores(ag_pred, ant_pred),
+            "benchmarks": _draw_benchmark_summary(ag_art, ant_art),
         }
 
         return render_template(
@@ -300,15 +344,19 @@ def predict():
             lipinski=lip,
             figs=figs,
             stats=stats,
+            ag_validation=ag_validation,
+            ant_validation=ant_validation,
+            descriptor_items=_descriptor_items(ag_pred["descriptors"]),
         )
-    except Exception as e:
-        error = str(e)
+    except Exception as exc:
+        error = str(exc)
         return render_template(
             "index.html",
             error=error,
             compound_name=compound_name,
             smiles=smiles_in,
         )
+
 
 @app.post("/export")
 def export():
@@ -322,13 +370,14 @@ def export():
     ant_pred = model_ant.predict(smiles)
     best = max(
         [ag_pred, ant_pred],
-        key=lambda r: (r["hit_score"], 1 if r["activity"] == "active" else 0),
+        key=lambda result: (result["hit_score"], 1 if result["activity"] == "active" else 0),
     )
-    chem_traits = _compute_chemical_traits(smiles)
+    chem_traits = _compute_chemical_traits(ag_pred["descriptors"])
     lip = _lipinski_flags(ag_pred["descriptors"])
 
     ag_art = model_ag.get_model_artifacts()
     ant_art = model_ant.get_model_artifacts()
+    validation = _validation_snapshot(ag_art)
     stats = {
         "ag_p_value": _empirical_p_value(ag_pred["hit_score"], ag_art["null"]["hit_scores"]),
         "ant_p_value": _empirical_p_value(ant_pred["hit_score"], ant_art["null"]["hit_scores"]),
@@ -336,14 +385,15 @@ def export():
         "ant_null_n": int(ant_art["null"]["n_train"]),
         "ag_majority_acc": float(ag_art["null"]["majority_baseline_accuracy"]),
         "ant_majority_acc": float(ant_art["null"]["majority_baseline_accuracy"]),
+        "ag_external_majority_acc": float(ag_art["null"]["external_majority_baseline_accuracy"]),
+        "ant_external_majority_acc": float(ant_art["null"]["external_majority_baseline_accuracy"]),
     }
 
-    txt = _export_txt(compound_name, smiles, ag_pred, ant_pred, best, chem_traits, lip, stats)
-    filename = "pparg_results.txt"
+    txt = _export_txt(compound_name, smiles, ag_pred, ant_pred, best, chem_traits, lip, stats, validation)
     return Response(
         txt,
         mimetype="text/plain",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": 'attachment; filename="pparg_results.txt"'},
     )
 
 
@@ -353,4 +403,3 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5051"))
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"
     app.run(debug=debug, host="0.0.0.0", port=port)
-

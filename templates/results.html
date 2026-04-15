@@ -55,7 +55,7 @@
             </p>
             <p class="interpret__p">
               Based on these results, this molecule is predicted to <b>{{ 'engage' if best.activity == 'active' else 'not engage' }}</b>
-              with PPARG in the context of the current training data and descriptor set (MW/HBA/HBD/LogP).
+              with PPARG in the context of the current training data and descriptor set (8 RDKit-derived physicochemical traits).
             </p>
           </div>
         </section>
@@ -87,12 +87,12 @@
                 <span class="pill pill--agonist {{ 'pill--active' if ag.activity == 'active' else 'pill--inactive' }}">{{ ag.activity }}</span>
                 <span class="mono">hit {{ '%.3f'|format(ag.hit_score) }}</span>
               </div>
+              <div class="muted small">Calibrated P(active): <span class="mono">{{ '%.3f'|format(ag.prob_active) }}</span></div>
               <div class="muted small">Empirical p-value: <span class="mono">{{ '%.4f'|format(stats.ag_p_value) }}</span></div>
               <div class="table">
-                <div class="table__row"><div class="table__k">MW</div><div class="table__v">{{ '%.2f'|format(ag.descriptors.molecular_weight) }}</div></div>
-                <div class="table__row"><div class="table__k">HBA</div><div class="table__v">{{ ag.descriptors.HBA }}</div></div>
-                <div class="table__row"><div class="table__k">HBD</div><div class="table__v">{{ ag.descriptors.HBD }}</div></div>
-                <div class="table__row"><div class="table__k">LogP</div><div class="table__v">{{ '%.2f'|format(ag.descriptors.LogP) }}</div></div>
+                {% for label, value in descriptor_items %}
+                  <div class="table__row"><div class="table__k">{{ label }}</div><div class="table__v">{{ value }}</div></div>
+                {% endfor %}
               </div>
             </div>
 
@@ -102,12 +102,38 @@
                 <span class="pill {{ 'pill--active' if ant.activity == 'active' else 'pill--inactive' }}">{{ ant.activity }}</span>
                 <span class="mono">hit {{ '%.3f'|format(ant.hit_score) }}</span>
               </div>
+              <div class="muted small">Calibrated P(active): <span class="mono">{{ '%.3f'|format(ant.prob_active) }}</span></div>
               <div class="muted small">Empirical p-value: <span class="mono">{{ '%.4f'|format(stats.ant_p_value) }}</span></div>
               <div class="table">
-                <div class="table__row"><div class="table__k">MW</div><div class="table__v">{{ '%.2f'|format(ant.descriptors.molecular_weight) }}</div></div>
-                <div class="table__row"><div class="table__k">HBA</div><div class="table__v">{{ ant.descriptors.HBA }}</div></div>
-                <div class="table__row"><div class="table__k">HBD</div><div class="table__v">{{ ant.descriptors.HBD }}</div></div>
-                <div class="table__row"><div class="table__k">LogP</div><div class="table__v">{{ '%.2f'|format(ant.descriptors.LogP) }}</div></div>
+                {% for label, value in descriptor_items %}
+                  <div class="table__row"><div class="table__k">{{ label }}</div><div class="table__v">{{ value }}</div></div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel panel--wide">
+          <h2 class="panel__title">Validation</h2>
+          <div class="twocol">
+            <div class="card">
+              <div class="card__title">Agonist model</div>
+              <div class="table">
+                <div class="table__row"><div class="table__k">Internal holdout balanced acc.</div><div class="table__v">{{ '%.3f'|format(ag_validation.internal.balanced_accuracy) }}</div></div>
+                <div class="table__row"><div class="table__k">Internal holdout ROC-AUC</div><div class="table__v">{{ '%.3f'|format(ag_validation.internal.roc_auc) }}</div></div>
+                <div class="table__row"><div class="table__k">External scaffold balanced acc.</div><div class="table__v">{{ '%.3f'|format(ag_validation.external.balanced_accuracy) }}</div></div>
+                <div class="table__row"><div class="table__k">External scaffold ROC-AUC</div><div class="table__v">{{ '%.3f'|format(ag_validation.external.roc_auc) }}</div></div>
+                <div class="table__row"><div class="table__k">Best benchmark</div><div class="table__v">{{ ag_validation.best_benchmark.model_name }}</div></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card__title">Antagonist model</div>
+              <div class="table">
+                <div class="table__row"><div class="table__k">Internal holdout balanced acc.</div><div class="table__v">{{ '%.3f'|format(ant_validation.internal.balanced_accuracy) }}</div></div>
+                <div class="table__row"><div class="table__k">Internal holdout ROC-AUC</div><div class="table__v">{{ '%.3f'|format(ant_validation.internal.roc_auc) }}</div></div>
+                <div class="table__row"><div class="table__k">External scaffold balanced acc.</div><div class="table__v">{{ '%.3f'|format(ant_validation.external.balanced_accuracy) }}</div></div>
+                <div class="table__row"><div class="table__k">External scaffold ROC-AUC</div><div class="table__v">{{ '%.3f'|format(ant_validation.external.roc_auc) }}</div></div>
+                <div class="table__row"><div class="table__k">Best benchmark</div><div class="table__v">{{ ant_validation.best_benchmark.model_name }}</div></div>
               </div>
             </div>
           </div>
@@ -118,8 +144,10 @@
           <div class="muted small">
             The p-values shown above are <b>empirical one-sided p-values</b> for the query hit score against each model’s
             <b>training-distribution hit scores</b> (n={{ stats.ag_null_n }} agonist / n={{ stats.ant_null_n }} antagonist).
-            A simple null comparison is also available: majority-class baseline accuracy on the same holdout split
-            (agonist={{ '%.3f'|format(stats.ag_majority_acc) }}, antagonist={{ '%.3f'|format(stats.ant_majority_acc) }}).
+            A simple null comparison is also available: majority-class baseline accuracy on the internal holdout
+            (agonist={{ '%.3f'|format(stats.ag_majority_acc) }}, antagonist={{ '%.3f'|format(stats.ant_majority_acc) }})
+            and on the external scaffold split
+            (agonist={{ '%.3f'|format(stats.ag_external_majority_acc) }}, antagonist={{ '%.3f'|format(stats.ant_external_majority_acc) }}).
           </div>
         </section>
 
@@ -128,11 +156,15 @@
           <div class="figgrid">
             <figure class="figure">
               <img src="{{ figs.hit_scores }}" alt="Hit scores" />
-              <figcaption>Hit scores (max class probability) for this query.</figcaption>
+              <figcaption>Prediction confidence for this query.</figcaption>
             </figure>
             <figure class="figure">
               <img src="{{ figs.metrics }}" alt="Model metrics" />
-              <figcaption>Holdout metrics from a fixed-seed 80/20 split.</figcaption>
+              <figcaption>Internal holdout versus external scaffold validation.</figcaption>
+            </figure>
+            <figure class="figure">
+              <img src="{{ figs.benchmarks }}" alt="Benchmark summary" />
+              <figcaption>Development-set benchmark ranking by balanced accuracy.</figcaption>
             </figure>
             <figure class="figure">
               <img src="{{ figs.feature_importance }}" alt="Feature importance" />
@@ -160,4 +192,3 @@
     </div>
   </body>
 </html>
-
