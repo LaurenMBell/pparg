@@ -18,6 +18,6 @@ COPY --chown=$MAMBA_USER:$MAMBA_USER . /app
 
 EXPOSE 10000
 
-# Render sets $PORT. Gunicorn binds to it.
-CMD micromamba run -n pparg gunicorn -w 2 -k gthread --threads 4 -b 0.0.0.0:${PORT:-10000} app:app
-
+# Render sets $PORT. A single threaded worker keeps cold starts and memory use
+# lower on the free plan while still allowing concurrent requests.
+CMD micromamba run -n pparg gunicorn -w 1 -k gthread --threads 4 -b 0.0.0.0:${PORT:-10000} app:app

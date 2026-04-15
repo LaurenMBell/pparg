@@ -1,25 +1,11 @@
 import base64
 import io
 import os
+from functools import lru_cache
 from typing import Any, Optional
 
-os.environ.setdefault("MPLCONFIGDIR", "/tmp/mplconfig")
-
-import matplotlib
-
-matplotlib.use("Agg")
-
-import matplotlib.pyplot as plt
-import numpy as np
 import requests
 from flask import Flask, Response, render_template, request
-from matplotlib import colors as mcolors
-from rdkit import Chem
-
-from ml_core import DISPLAY_FEATURE_NAMES
-import model_ag
-import model_ant
-
 
 app = Flask(__name__)
 
@@ -28,6 +14,7 @@ PUBCHEM_TIMEOUT_S = 12
 
 
 def _fig_to_data_uri(fig) -> str:
+    plt = _get_plt()
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=180, bbox_inches="tight")
     plt.close(fig)
@@ -35,7 +22,56 @@ def _fig_to_data_uri(fig) -> str:
     return f"data:image/png;base64,{b64}"
 
 
+@lru_cache(maxsize=1)
+def _get_plt():
+    os.environ.setdefault("MPLCONFIGDIR", "/tmp/mplconfig")
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    return plt
+
+
+@lru_cache(maxsize=1)
+def _get_mcolors():
+    from matplotlib import colors as mcolors
+
+    return mcolors
+
+
+@lru_cache(maxsize=1)
+def _get_np():
+    import numpy as np
+
+    return np
+
+
+@lru_cache(maxsize=1)
+def _get_chem():
+    from rdkit import Chem
+
+    return Chem
+
+
+@lru_cache(maxsize=1)
+def _get_display_feature_names() -> dict[str, str]:
+    from ml_core import DISPLAY_FEATURE_NAMES
+
+    return DISPLAY_FEATURE_NAMES
+
+
+@lru_cache(maxsize=1)
+def _get_model_modules():
+    import model_ag
+    import model_ant
+
+    return model_ag, model_ant
+
+
 def _paired_oranges() -> tuple[str, str]:
+    plt = _get_plt()
+    mcolors = _get_mcolors()
     cmap = plt.get_cmap("Paired")
     light = mcolors.to_hex(cmap(6))
     dark = mcolors.to_hex(cmap(7))
@@ -45,7 +81,7 @@ def _paired_oranges() -> tuple[str, str]:
 def _is_probably_smiles(text: str) -> bool:
     if not text:
         return False
-    return Chem.MolFromSmiles(text) is not None
+    return _get_chem().MolFromSmiles(text) is not None
 
 
 def pubchem_name_to_smiles(name: str) -> str:
@@ -67,11 +103,14 @@ def pubchem_name_to_smiles(name: str) -> str:
 
 
 def _draw_feature_importance(ag, ant):
+    plt = _get_plt()
+    np = _get_np()
+    display_feature_names = _get_display_feature_names()
     orange_light, orange_dark = _paired_oranges()
     fig, ax = plt.subplots(figsize=(9.4, 3.6))
     ag_fi = ag["feature_importance"]
     ant_fi = ant["feature_importance"]
-    features = [DISPLAY_FEATURE_NAMES.get(feature, feature) for feature in ag_fi.index]
+    features = [display_feature_names.get(feature, feature) for feature in ag_fi.index]
 
     x = np.arange(len(features))
     w = 0.36
@@ -88,6 +127,8 @@ def _draw_feature_importance(ag, ant):
 
 
 def _draw_model_metrics(ag, ant):
+    plt = _get_plt()
+    np = _get_np()
     orange_light, orange_dark = _paired_oranges()
     fig, axes = plt.subplots(1, 2, figsize=(10.4, 3.2), constrained_layout=True)
     labels = ["balanced_accuracy", "roc_auc", "avg_precision"]
@@ -115,6 +156,7 @@ def _draw_model_metrics(ag, ant):
 
 
 def _draw_prediction_hit_scores(ag_pred, ant_pred):
+    plt = _get_plt()
     orange_light, orange_dark = _paired_oranges()
     fig, ax = plt.subplots(figsize=(7.6, 2.7))
     labels = ["Agonist", "Antagonist"]
@@ -130,6 +172,7 @@ def _draw_prediction_hit_scores(ag_pred, ant_pred):
 
 
 def _draw_benchmark_summary(ag, ant):
+    plt = _get_plt()
     orange_light, orange_dark = _paired_oranges()
     fig, axes = plt.subplots(1, 2, figsize=(10.4, 3.4), constrained_layout=True)
 
@@ -150,8 +193,9 @@ def _draw_benchmark_summary(ag, ant):
 
 
 def _descriptor_items(descriptors: dict[str, Any]) -> list[tuple[str, Any]]:
+    display_feature_names = _get_display_feature_names()
     rows = []
-    for key, label in DISPLAY_FEATURE_NAMES.items():
+    for key, label in display_feature_names.items():
         value = descriptors[key]
         rows.append((label, round(value, 2) if isinstance(value, float) else value))
     return rows
@@ -190,6 +234,18 @@ def _validation_snapshot(artifacts: dict[str, Any]) -> dict[str, Any]:
         "benchmarks": benchmarks,
         "best_benchmark": benchmarks[0],
         "splits": artifacts["splits"],
+    }
+
+
+@lru_cache(maxsize=1)
+def _shared_visuals() -> dict[str, str]:
+    model_ag, model_ant = _get_model_modules()
+    ag_art = model_ag.get_model_artifacts()
+    ant_art = model_ant.get_model_artifacts()
+    return {
+        "metrics": _draw_model_metrics(ag_art, ant_art),
+        "feature_importance": _draw_feature_importance(ag_art, ant_art),
+        "benchmarks": _draw_benchmark_summary(ag_art, ant_art),
     }
 
 
@@ -284,6 +340,7 @@ def index():
 
 @app.post("/predict")
 def predict():
+    model_ag, model_ant = _get_model_modules()
     compound_name = (request.form.get("compound_name") or "").strip()
     smiles_in = (request.form.get("smiles") or "").strip()
 
@@ -326,11 +383,12 @@ def predict():
             "ant_external_majority_acc": float(ant_art["null"]["external_majority_baseline_accuracy"]),
         }
 
+        shared_visuals = _shared_visuals()
         figs = {
-            "metrics": _draw_model_metrics(ag_art, ant_art),
-            "feature_importance": _draw_feature_importance(ag_art, ant_art),
+            "metrics": shared_visuals["metrics"],
+            "feature_importance": shared_visuals["feature_importance"],
             "hit_scores": _draw_prediction_hit_scores(ag_pred, ant_pred),
-            "benchmarks": _draw_benchmark_summary(ag_art, ant_art),
+            "benchmarks": shared_visuals["benchmarks"],
         }
 
         return render_template(
@@ -360,6 +418,7 @@ def predict():
 
 @app.post("/export")
 def export():
+    model_ag, model_ant = _get_model_modules()
     compound_name = (request.form.get("compound_name") or "").strip()
     smiles_in = (request.form.get("smiles") or "").strip()
     if not smiles_in:
