@@ -20,7 +20,7 @@ Features for model (standard type and SMILES code don't count):
 5) HBA (h-bond acceptors): categorical
 6) LogP: continuous
 7) Morgan fingerprints: continuous
- """
+"""
 
 import matplotlib.pyplot as plt
 import pandas as pd 
@@ -29,12 +29,12 @@ from featSelection import Features
 
 def summary_stats(df):    
     report = sv.analyze([df, 'Train'], target_feat = "pChEMBL Value")
-    report.show_html('alldata_report.html')
+    report.show_html('reports/alldata_report.html')
 
 def feature_stats(df, label):
     df_clean = df.drop(columns=["Morgan_fingerprint"])
     report = sv.analyze([df_clean, 'Train'], target_feat = "activity")
-    report.show_html(f"{label}_report.html")
+    report.show_html(f"reports/{label}_report.html")
 
 
 def main():

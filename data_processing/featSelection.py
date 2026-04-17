@@ -21,6 +21,8 @@ from rdkit import Chem
 from rdkit.Chem import Descriptors, Lipinski, Crippen, rdFingerprintGenerator
 import numpy as np
 
+np.set_printoptions(threshold=np.inf)
+
 class Features:
     @staticmethod
 
@@ -37,7 +39,7 @@ class Features:
         bit={}
         #theoretically this is depreciated but I don't really care rn
         mfpgen = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=1024)
-        fp = mfpgen.GetFingerprint(m)
+        fp = np.array(mfpgen.GetFingerprint(m))
 
         ha = m.GetNumHeavyAtoms()
 
