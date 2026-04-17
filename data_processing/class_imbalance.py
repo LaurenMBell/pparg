@@ -10,7 +10,7 @@ Tutorials used:
 """
 
 from sklearn.model_selection import train_test_split
-import imblearn
+from imblearn.over_sampling import RandomOverSampler
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition import PCA
@@ -18,8 +18,8 @@ import matplotlib.pyplot as plt
 
 #prepping the dataset
 df = pd.read_csv("data/agonists.csv")
-X_train, X_test, y_train, y_test = train_test_split(df.drop(["pChEMBL Value", "Standard Type", "Smiles", "Morgan_fingerprint"], axis = 1), 
-                                                    df["pChEMBL Value"], 
+X_train, X_test, y_train, y_test = train_test_split(df.drop(["pChEMBL Value", "Standard Type", "Smiles"], axis = 1), 
+                                                    df["activity"], 
                                                     test_size = 0.4, 
                                                     random_state=42)
 
@@ -37,10 +37,17 @@ X_test_pca = pca.transform(X_test)
 
 def plt_pca(X, y, ax, title):
     ax.scatter(X[:, 0], X[:, 1], c=y, alpha = 0.5, s=30, edgecolor=(0,0,0,0.5))
-    ax.set_ylabel("PC 1")
-    ax.set_xlabel("PC 2")
+    ax.set_ylabel("PC 2")
+    ax.set_xlabel("PC 1")
     ax.set_title(title)
 
 fig, ax = plt.subplots(figsize=(5,5))
-fig.show()
 plt_pca(X_train_pca, y_train, ax, title="Original Dataset")
+#plt.show()
+
+ros = RandomOverSampler(random_state=0)
+X_train_ros, y_train_ros = ros.fit_resample(X_train_pca, y_train)
+
+fig, ax = plt.subplots(figsize=(5,5))
+plt_pca(X_train_ros, y_train_ros, ax, "Random Oversampling Dataset")
+#plt.show()

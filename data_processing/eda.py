@@ -19,7 +19,7 @@ Features for model (standard type and SMILES code don't count):
 4) HBD (h-bond donors): categorical
 5) HBA (h-bond acceptors): categ7orical
 6) LogP: continuous
-7) Morgan fingerprints: continuous
+7) Morgan fingerprints: binary vectors (1024 binary features)
 """
 
 import matplotlib.pyplot as plt
