@@ -1,6 +1,9 @@
 # 1) clean data into antagonists (IC50) and agonists (EC50)
 # 2) convert SMILES code to RDKit descriptors and save those for further use
 
+# IC50/EC50 threshold choice: https://www.researchgate.net/post/Acceptable-IC50-drug-concentration-for-MTT-essay#:~:text=In%20most%20cases%2C%20the%20IC50,and%20excretion%20in%20our%20body.
+# the value provided by ChEMBL is -log(molar IC50), so I just converted it from there to 5. pChEMBL >= 5 is active, and pChEMBL < 5 is inactive
+
 import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import Descriptors, Lipinski, Crippen
@@ -42,6 +45,8 @@ df['activity'] = df['pChEMBL Value'].apply(activity)
 
 df_ag = df[df["Standard Type"] == "EC50"]
 df_ant = df[df["Standard Type"] == "IC50"]
+
+
 
 # feature selection
 descript = df_ag["Smiles"].apply(calc_descriptors)

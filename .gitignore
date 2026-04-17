@@ -1,3 +1,2 @@
 __pycache__/
-*.pyc
-model_cache/
+.DS_Store
