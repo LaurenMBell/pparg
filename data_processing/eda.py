@@ -17,7 +17,7 @@ Features for model (standard type and SMILES code don't count):
 2) #RO5 volations: categorical, 4 categories, 0-3 range
 3) HA (# of heavy atoms): continuous, 
 4) HBD (h-bond donors): categorical
-5) HBA (h-bond acceptors): categorical
+5) HBA (h-bond acceptors): categ7orical
 6) LogP: continuous
 7) Morgan fingerprints: continuous
 """
@@ -32,7 +32,9 @@ def summary_stats(df):
     report.show_html('reports/alldata_report.html')
 
 def feature_stats(df, label):
-    df_clean = df.drop(columns=["Morgan_fingerprint"])
+    mfps = [col for col in df.columns if str(col).startswith("mfp_")]
+    df_clean = df.drop(columns=mfps) #drop all the mfp features and smiles codes
+    #df_clean = df_clean.drop(["Smiles"])
     report = sv.analyze([df_clean, 'Train'], target_feat = "activity")
     report.show_html(f"reports/{label}_report.html")
 
@@ -57,10 +59,10 @@ def main():
     df_ant = feature_data[feature_data["Standard Type"] == "IC50"]
 
     # feature selection
-    descript = df_ag["Smiles"].apply(Features.calc_descriptors)
-    df_ag[["Molecular_weight", "HBA", "HBD", "LogP", "Morgan_fingerprint", "HA"]] = pd.DataFrame(descript.tolist(), index=df_ag.index)
-    descript = df_ant["Smiles"].apply(Features.calc_descriptors)
-    df_ant[["Molecular_weight", "HBA", "HBD", "LogP", "Morgan_fingerprint", "HA"]] = pd.DataFrame(descript.tolist(), index=df_ant.index)
+    ag_feats = df_ag["Smiles"].apply(lambda x: pd.Series(Features.calc_descriptors(x)))
+    df_ag = pd.concat([df_ag, ag_feats], axis = 1)
+    ant_feats = df_ant["Smiles"].apply(lambda x: pd.Series(Features.calc_descriptors(x)))
+    df_ant = pd.concat([df_ant, ant_feats], axis = 1)
 
     df_ag.to_csv("data/agonists.csv", index=False)
     df_ant.to_csv("data/antagonists.csv", index=False)

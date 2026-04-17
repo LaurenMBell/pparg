@@ -24,9 +24,9 @@ import numpy as np
 np.set_printoptions(threshold=np.inf)
 
 class Features:
-    @staticmethod
 
     # function for getting from smiles code -> features we want
+    @staticmethod
     def calc_descriptors(smiles):
         m = Chem.MolFromSmiles(smiles)
         
@@ -35,16 +35,29 @@ class Features:
         hba = Lipinski.NumHAcceptors(m)
         hbd = Lipinski.NumHDonors(m)
         logp = Crippen.MolLogP(m)
+        ha = m.GetNumHeavyAtoms()
 
-        bit={}
         #theoretically this is depreciated but I don't really care rn
         mfpgen = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=1024)
         fp = np.array(mfpgen.GetFingerprint(m))
 
-        ha = m.GetNumHeavyAtoms()
+        
 
-        return mw, hba, hbd, logp, fp, ha
+        #saving features to dictionary so morgan fingerprints can be saved as features
+        feats = {
+            'MW' : mw, 
+            "HBA" : hba, 
+            "HBD" : hbd, 
+            "logP" : logp,
+            "HA" : ha
+            }
 
+        for i, bit in enumerate(fp):
+            feats[f'mfp_{i}'] = bit
+
+        return feats
+
+    @staticmethod
     def activity(val):
         if val >= 5.5:
             return True
