@@ -5,6 +5,7 @@ would've worked just fine for this
 The split between active and inactive in the training data is 80% to 20%, and 
 I want to deal with that. I had to lean pretty heavily on the tutorial for 
 this part. If you look at it it's lowkey verbatim the tut lol
+
 Tutorials used:
 - https://medium.com/data-science/class-imbalance-strategies-a-visual-guide-with-code-8bc8fae71e1a
 """
@@ -16,9 +17,10 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 
-#prepping the dataset
+#prepping the dataset - AGONISTS
 df = pd.read_csv("data/agonists.csv")
-X_train, X_test, y_train, y_test = train_test_split(df.drop(["pChEMBL Value", "Standard Type", "Smiles"], axis = 1), 
+feature_cols = df.columns.drop(["pChEMBL Value", "Standard Type", "Smiles"])
+X_train, X_test, y_train, y_test = train_test_split(df[feature_cols], 
                                                     df["activity"], 
                                                     test_size = 0.4, 
                                                     random_state=42)
@@ -46,8 +48,71 @@ plt_pca(X_train_pca, y_train, ax, title="Original Dataset")
 #plt.show()
 
 ros = RandomOverSampler(random_state=0)
-X_train_ros, y_train_ros = ros.fit_resample(X_train_pca, y_train)
+X_train_ros_vis, y_train_ros_vis = ros.fit_resample(X_train_pca, y_train)
 
 fig, ax = plt.subplots(figsize=(5,5))
-plt_pca(X_train_ros, y_train_ros, ax, "Random Oversampling Dataset")
+plt_pca(X_train_ros_vis, y_train_ros_vis, ax, "Random Oversampling Dataset")
 #plt.show()
+
+#oversample my data
+X_train_ros, y_train_ros = ros.fit_resample(X_train, y_train)
+
+df_training = pd.DataFrame(X_train_ros, columns=feature_cols)
+df_training["activity"] = y_train_ros
+
+df_testing = pd.DataFrame(X_test, columns=feature_cols)
+df_testing["activity"] = y_test.values
+
+df_training.to_csv("data/agonists_training.csv", index=False)
+df_testing.to_csv("data/agonists_test.csv", index=False)
+
+#===============================================================
+#prepping the dataset - ANTAGONISTS
+df = pd.read_csv("data/antagonists.csv")
+feature_cols = df.columns.drop(["pChEMBL Value", "Standard Type", "Smiles"])
+X_train, X_test, y_train, y_test = train_test_split(df[feature_cols], 
+                                                    df["activity"], 
+                                                    test_size = 0.4, 
+                                                    random_state=42)
+
+#scale the dataset
+scaler = MinMaxScaler()
+scaler.fit(X_train)
+X_train = scaler.transform(X_train)
+X_test = scaler.transform(X_test)
+
+#perform PCA to visualize the imbalanced dataset 
+pca = PCA(n_components=2)
+pca.fit(X_train)
+X_train_pca = pca.transform(X_train)
+X_test_pca = pca.transform(X_test)
+
+def plt_pca(X, y, ax, title):
+    ax.scatter(X[:, 0], X[:, 1], c=y, alpha = 0.5, s=30, edgecolor=(0,0,0,0.5))
+    ax.set_ylabel("PC 2")
+    ax.set_xlabel("PC 1")
+    ax.set_title(title)
+
+fig, ax = plt.subplots(figsize=(5,5))
+plt_pca(X_train_pca, y_train, ax, title="Original Dataset")
+#plt.show()
+
+ros = RandomOverSampler(random_state=0)
+X_train_ros_vis, y_train_ros_vis = ros.fit_resample(X_train_pca, y_train)
+
+fig, ax = plt.subplots(figsize=(5,5))
+plt_pca(X_train_ros_vis, y_train_ros_vis, ax, "Random Oversampling Dataset")
+#plt.show()
+
+#oversample my data
+X_train_ros, y_train_ros = ros.fit_resample(X_train, y_train)
+
+#save to use for model training + testing
+df_training = pd.DataFrame(X_train_ros, columns=feature_cols)
+df_training["activity"] = y_train_ros
+
+df_testing = pd.DataFrame(X_test, columns=feature_cols)
+df_testing["activity"] = y_test.values
+
+df_training.to_csv("data/antagonists_training.csv", index=False)
+df_testing.to_csv("data/antagonists_test.csv", index=False)
