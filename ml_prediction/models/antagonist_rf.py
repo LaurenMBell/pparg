@@ -1,32 +1,52 @@
 """
-Tutortials referenced: 
+Tutortials/docs referenced: 
  - https://www.geeksforgeeks.org/machine-learning/random-forest-algorithm-in-machine-learning/
+ - https://joblib.readthedocs.io/en/stable/
+ - https://www.analyticsvidhya.com/blog/2023/02/how-to-save-and-load-machine-learning-models-in-python-using-joblib-library/
+
 
 Until I build out a UI, a CLI will have to do :)
+
+Using JobLib to save the model 
 """
 
 import pandas as pd 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report
+import joblib
 
-#undo what you did in class_imbalance.py 
-X_train = pd.read_csv("../../data_processing/data/antagonists_training.csv")
-y_train = X_train["activity"]
-X_train = X_train.drop(columns=["activity"]) 
+class AntagonistRF:
+    def __init__(self):
+        #load data when calss is initialized instead of retraining with each call
+        #undo what you did in class_imbalance.py 
 
-X_test = pd.read_csv("../../data_processing/data/antagonists_test.csv")
-y_test = X_test["activity"]
-X_test = X_test.drop(columns=["activity"])
+        self.X_train = pd.read_csv("../../data_processing/data/antagonists_training.csv")
+        self.y_train = self.X_train["activity"]
+        self.X_train = self.X_train.drop(columns=["activity"]) 
 
-ag_model = RandomForestClassifier(n_estimators=100,random_state=42)
-ag_model.fit(X_train, y_train)
+        self.X_test = pd.read_csv("../../data_processing/data/antagonists_test.csv")
+        self.y_test = self.X_test["activity"]
+        self.X_test = self.X_test.drop(columns=["activity"])
 
-y_pred = ag_model.predict(X_test)
+        self.ag_model = RandomForestClassifier(n_estimators=100,random_state=42)
+        self.ag_model.fit(self.X_train, self.y_train)
 
-#model evaluation
-accuracy = accuracy_score(y_test, y_pred)
-classification = classification_report(y_test, y_pred)
+    def train(self):
+        self.ag_model.fit(self.X_train, self.y_train)
+    
+    def basic_eval(self):
+        y_pred = self.ag_model.predict(self.X_test)
 
-print("Antagonist RF Model")
-print(f"Accuracy: {accuracy:.2f}\n")
-print(f"Classification: \n{classification}")
+        #model evaluation
+        accuracy = accuracy_score(self.y_test, y_pred)
+        classification = classification_report(self.y_test, y_pred)
+
+        print("Antagonist RF Model")
+        print(f"Accuracy: {accuracy:.2f}\n")
+        print(f"Classification: \n{classification}")
+
+    def save_model(self):
+        joblib.dump(self.ag_model, "antagonist_rf_model.joblib")
+
+
+
